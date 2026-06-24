@@ -31,5 +31,13 @@ derive_more = { version = "2.1.1", features = ["constructor"], default-features 
 paste = "1.0.15"
 bitflags = "2.11.0"
 
+[profile.dev]
+opt-level = 3
+debug = 2
+debug-assertions = false
+lto = true
+codegen-units = 16
+
 [profile.release]
+lto = true
 debug = 2
