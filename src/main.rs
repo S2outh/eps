@@ -37,9 +37,8 @@ use embassy_sync::{
 };
 use embassy_time::Timer;
 use south_common::{
-    chell::ChellDefinition,
     configs::can_config::CanPeriphConfig,
-    definitions::{internal_msgs, telemetry::eps as tm},
+    definitions::{telemetry::eps as tm},
     gen_obdh_types,
     obdh::EmptyFunc,
     types::eps::{EPSCommand, FlipFlopInput},
@@ -204,16 +203,12 @@ async fn main(spawner: Spawner) {
     // -- CAN configuration
 
     // can 1 configuration
-    let mut can_configurator =
+    let can_configurator =
         CanPeriphConfig::new(CanConfigurator::new(p.FDCAN1, p.PA11, p.PA12, Irqs));
 
     // can 2 configuration
     // let mut can_configurator =
     //     CanPeriphConfig::new(CanConfigurator::new(p.FDCAN2, p.PB0, p.PB1, Irqs));
-
-    can_configurator
-        .add_receive_topic(internal_msgs::Telecommand.id())
-        .unwrap();
 
     let can_instance = can_configurator.activate(
         TX_BUF.init(TxFdBuf::<TX_BUF_SIZE>::new()),
@@ -233,8 +228,7 @@ async fn main(spawner: Spawner) {
     let control_loop = ControlLoop::spawn(
         source_flip_flop,
         sink_ctrl,
-        COM_CHANNELS.get_tc_receiver(),
-        COM_CHANNELS.get_tm_sender(),
+        &COM_CHANNELS,
     );
 
     spawner.spawn(petter(watchdog).unwrap());
@@ -245,7 +239,7 @@ async fn main(spawner: Spawner) {
     if let Ok(tmp) = bat_1_tmp {
         spawner.spawn(
             sensor_threads::bat_temp_thread(
-                COM_CHANNELS.get_tm_sender(),
+                &COM_CHANNELS,
                 tmp,
                 &tm::Bat1Temperature,
                 FlipFlopInput::Bat1,
@@ -257,7 +251,7 @@ async fn main(spawner: Spawner) {
     if let Ok(tmp) = bat_2_tmp {
         spawner.spawn(
             sensor_threads::bat_temp_thread(
-                COM_CHANNELS.get_tm_sender(),
+                &COM_CHANNELS,
                 tmp,
                 &tm::Bat2Temperature,
                 FlipFlopInput::Bat2,
@@ -266,7 +260,7 @@ async fn main(spawner: Spawner) {
         );
     }
 
-    spawner.spawn(sensor_threads::ina_thread(COM_CHANNELS.get_tm_sender(), ina).unwrap());
+    spawner.spawn(sensor_threads::ina_thread(&COM_CHANNELS, ina).unwrap());
 
     spawner.spawn(can_sender_task(can_sender).unwrap());
     spawner.spawn(can_receiver_task(can_receiver).unwrap());

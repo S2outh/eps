@@ -6,7 +6,7 @@ use south_common::definitions::telemetry::eps as tm;
 
 use crate::pwr_src::d_flip_flop::DFlipFlop;
 use crate::pwr_src::sink_ctrl::SinkCtrl;
-use crate::{EpsChellUnion, EpsTCReceiver, EpsTMSender};
+use crate::{EpsChellUnion, EpsComChannels};
 use south_common::types::eps::{EPSCommand, FlipFlopInput, Sink, SinkEnabled, SourceEnabled};
 
 pub static SENSOR_CRITICAL: Signal<ThreadModeRawMutex, CriticalState> = Signal::new();
@@ -21,22 +21,19 @@ pub enum CriticalState {
 pub struct ControlLoop<'d> {
     source_flip_flop: DFlipFlop<'d>,
     sink_ctrl: SinkCtrl<'d>,
-    cmd_receiver: EpsTCReceiver,
-    tm_sender: EpsTMSender,
+    com_channels: &'static EpsComChannels,
 }
 
 impl<'d> ControlLoop<'d> {
     pub fn spawn(
         source_flip_flop: DFlipFlop<'d>,
         sink_ctrl: SinkCtrl<'d>,
-        cmd_receiver: EpsTCReceiver,
-        tm_sender: EpsTMSender,
+        com_channels: &'static EpsComChannels,
     ) -> Self {
         Self {
             source_flip_flop,
             sink_ctrl,
-            cmd_receiver,
-            tm_sender,
+            com_channels,
         }
     }
 
@@ -77,7 +74,7 @@ impl<'d> ControlLoop<'d> {
                     );
                 )*
                 let container = EpsChellUnion::new(&tm:: $state, &bitmap.bits()).unwrap();
-                self.tm_sender.send(container).await;
+                self.com_channels.send_tm(container).await;
             } };
         }
         send_state_bitmap!(
@@ -114,7 +111,7 @@ impl<'d> ControlLoop<'d> {
         loop {
             match select3(
                 tm_ticker.next(),
-                self.cmd_receiver.receive(),
+                self.com_channels.receive_tc(),
                 SENSOR_CRITICAL.wait(),
             )
             .await

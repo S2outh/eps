@@ -6,7 +6,7 @@ use south_common::{
 };
 
 use crate::{
-    EpsChellUnion, EpsTMSender,
+    EpsChellUnion, EpsComChannels,
     control_loop::{self, CriticalState},
     pwr_src::{
         ina3221_drv::{Ina, InaConfig, VoltageRegisters},
@@ -17,13 +17,13 @@ use crate::{
 type I2c = embassy_stm32::i2c::I2c<'static, Async, Master>;
 
 #[embassy_executor::task]
-pub async fn ina_thread(tm_sender: EpsTMSender, mut ina: Ina<'static, I2c>) {
+pub async fn ina_thread(com_channels: &'static EpsComChannels, mut ina: Ina<'static, I2c>) {
     macro_rules! send_voltage {
         ($channel:expr, $tm_def:path $(, $additional_fn:expr)?) => {
             if let Ok(value) = ina.read_voltage_reg($channel).await {
                 $($additional_fn(value);)?
                 let container = EpsChellUnion::new(&$tm_def, &value).unwrap();
-                tm_sender.send(container).await;
+                com_channels.send_tm(container).await;
             }
         };
     }
@@ -79,7 +79,7 @@ pub async fn ina_thread(tm_sender: EpsTMSender, mut ina: Ina<'static, I2c>) {
 
 #[embassy_executor::task(pool_size = 2)]
 pub async fn bat_temp_thread(
-    tm_sender: EpsTMSender,
+    com_channels: &'static EpsComChannels,
     mut tmp: Tmp100<'static, I2c>,
     topic: &'static dyn ChellDefinition,
     source: FlipFlopInput,
@@ -93,7 +93,7 @@ pub async fn bat_temp_thread(
                 control_loop::SENSOR_CRITICAL.signal(CriticalState::Temperature(source));
             }
             let container = EpsChellUnion::new(topic, &temperature).unwrap();
-            tm_sender.send(container).await;
+            com_channels.send_tm(container).await;
         }
         ticker.next().await;
     }
