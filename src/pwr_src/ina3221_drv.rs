@@ -34,6 +34,12 @@ pub enum Error<I2CError> {
     IO(I2CError),
 }
 
+impl<I2CError> From<I2CError> for Error<I2CError> {
+    fn from(value: I2CError) -> Self {
+        Self::IO(value)
+    }
+}
+
 // I2c address
 #[repr(u8)]
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -275,8 +281,9 @@ impl<'d, I2C: I2c + ErrorType> Ina<'d, I2C> {
             .lock()
             .await
             .write(self.i2c_addr as u8, &buf)
-            .await
-            .map_err(Error::IO)
+            .await?;
+
+        Ok(())
     }
 
     async fn read_reg(&mut self, reg_addr: &dyn Register) -> Result<u16, Error<I2C::Error>> {
@@ -289,8 +296,7 @@ impl<'d, I2C: I2c + ErrorType> Ina<'d, I2C> {
                 core::array::from_ref(&reg_addr.get_addr()),
                 &mut buf,
             )
-            .await
-            .map_err(Error::IO)?;
+            .await?;
 
         Ok(u16::from_be_bytes(buf))
     }
