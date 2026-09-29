@@ -116,7 +116,7 @@ async fn petter(mut watchdog: IndependentWatchdog<'static, IWDG>) {
 
 // control loop task
 #[embassy_executor::task]
-pub async fn ctrl_thread(mut control_loop: ControlLoop<'static>) -> ! {
+pub async fn ctrl_task(mut control_loop: ControlLoop<'static>) -> ! {
     control_loop.run().await
 }
 
@@ -227,7 +227,7 @@ async fn main(spawner: Spawner) {
     let can_sender = EpsCanSender::new(can_instance.writer(), &COM_CHANNELS);
 
     // Main control loop setup
-    let control_loop = ControlLoop::spawn(
+    let control_loop = ControlLoop::new(
         source_flip_flop,
         sink_ctrl,
         &COM_CHANNELS,
@@ -236,7 +236,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(petter(watchdog).unwrap());
     spawner.spawn(safety(safety_off).unwrap());
 
-    spawner.spawn(ctrl_thread(control_loop).unwrap());
+    spawner.spawn(ctrl_task(control_loop).unwrap());
 
     if let Ok(tmp) = bat_1_tmp {
         spawner.spawn(

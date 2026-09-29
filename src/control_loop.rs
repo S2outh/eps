@@ -25,7 +25,7 @@ pub struct ControlLoop<'d> {
 }
 
 impl<'d> ControlLoop<'d> {
-    pub fn spawn(
+    pub fn new(
         source_flip_flop: DFlipFlop<'d>,
         sink_ctrl: SinkCtrl<'d>,
         com_channels: &'static EpsComChannels,
